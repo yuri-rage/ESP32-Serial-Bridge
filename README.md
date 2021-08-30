@@ -1,3 +1,11 @@
+# Yuri's Notes
+
+This sketch is now compatible with both the ESP32 and ESP8266.
+
+Because the ESP8266 has some idiosyncracies with its hardware serial ports, I used SoftwareSerial to implement the ESP8266 bridge.  It is limited to ~115200 baud and will likely prove less reliable than an ESP32.
+
+As is, the sketch will compile, build, and upload without errors for the ESP32.  Edit config.h and use SWSERIAL_8N1 (or other SWSERIAL_* parameters) to configure and build for ESP8266.
+
 # ESP32-Serial-Bridge
 
 Transparent WiFi (TCP) to all three UART Bridge, supports both AP and STATION WiFi modes. The .ino file is the code for the ESP32. Use Arduino IDE for ESP32 to compile and upload it to the ESP32.
