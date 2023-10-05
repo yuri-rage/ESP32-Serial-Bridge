@@ -42,7 +42,9 @@
 
 #ifdef PROTOCOL_UDP
 #include <AsyncUDP.h>
-AsyncUDP udp;
+
+AsyncUDP udp0, udp1, udp2;
+AsyncUDP *udp[NUM_COM] = {&udp0, &udp1, &udp2};
 uint16_t udp_port[NUM_COM] = {SERIAL0_UDP_PORT, SERIAL1_UDP_PORT,
                               SERIAL2_UDP_PORT};
 #endif
@@ -80,10 +82,8 @@ uint8_t buf2[NUM_COM][BUFFERSIZE];
 
 #ifdef ESP32
 uint16_t i1[NUM_COM] = {0, 0, 0};
-uint16_t i2[NUM_COM] = {0, 0, 0};
 #elif defined(ESP8266)
 uint16_t i1[NUM_COM] = {0, 0};
-uint16_t i2[NUM_COM] = {0, 0};
 #endif
 
 uint8_t BTbuf[BUFFERSIZE];
@@ -216,23 +216,13 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 #ifdef ESP32
 #ifdef PROTOCOL_UDP
-        bool listening = false;
         for (uint16_t num = 0; num < NUM_COM; num++) {
-            if (udp.listen(udp_port[num])) {
-                listening = true;  // at least one port is opened
+            if (udp[num]->listen(udp_port[num])) {
                 debug.printf("Listening on UDP port %d\n", udp_port[num]);
-            }
-        }
-        if (listening) {
-            udp.onPacket([](AsyncUDPPacket packet) {
-                for (uint16_t num = 0; num < NUM_COM; num++) {
-                    if (packet.remotePort() == udp_port[num]) {
-                        COM[num]->write(packet.data(), packet.length());
-                        break;
+                udp[num]->onPacket([num](AsyncUDPPacket packet) {
+                    COM[num]->write(packet.data(), packet.length()); });
                     }
                 }
-            });
-        }
 #endif
 #ifdef BLUETOOTH
         debug.printf("Bluetooth discoverable at %s\n", SSID);
@@ -311,31 +301,26 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 #endif
 
                 if (COM[num]->available()) {
-                    while (COM[num]->available()) {
-                        buf2[num][i2[num]] =
-                            COM[num]->read();  // read char from UART(num)
-                        i2[num]++;
-                        if (i2[num] == BUFFERSIZE - 1) break;
-                    }
-
+                    int readCount = COM[num]->read(&buf2[num][0], BUFFERSIZE); // Read up to BUFFERSIZE bytes from the serial device.
+                    if (readCount == 0)
+                        continue;
 #ifdef PROTOCOL_TCP
                     for (byte cln = 0; cln < MAX_NMEA_CLIENTS; cln++) {
                         if (TCPClient[num][cln])
-                            TCPClient[num][cln].write(buf2[num], i2[num]);
+                            TCPClient[num][cln].write(buf2[num], readCount);
                     }
 #endif
 
 #ifdef ESP32
 #ifdef PROTOCOL_UDP
-                    udp.broadcastTo(buf2[num], i2[num], udp_port[num]);
+                    udp[num]->broadcastTo(buf2[num], readCount, udp_port[num]);
 #endif
 #ifdef BLUETOOTH
                     // now send to Bluetooth:
                     if (num == BLUETOOTH && SerialBT.hasClient())
-                        SerialBT.write(buf2[num], i2[num]);
+                        SerialBT.write(buf2[num], readCount);
 #endif
 #endif
-                    i2[num] = 0;
                 }
             }
         }
