@@ -141,6 +141,7 @@ void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
 
 #ifdef MODE_STA
         debug.println("Open ESP Station Mode");
+        WiFi.setHostname(HOSTNAME);
         WiFi.mode(WIFI_STA);
 #ifdef ESP32
         WiFi.onEvent(WiFiStationDisconnected,
